@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="うちゅうUMAずかん">
+<title>うちゅうUMAずかん</title>
+<style>
+  :root {
+    --bg: #070b24;
+    --panel: #151c4a;
+    --panel-2: #1f2a66;
+    --text: #ffffff;
+    --muted: #b8c1ff;
+    --accent: #ffd84d;
+    --good: #3ddc84;
+    --bad: #ff6b6b;
+    --space: #4da3ff;
+    --uma: #b06bff;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    overflow: hidden; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  #stars { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; }
+  #app {
+    position: relative; z-index: 1; height: 100%;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    display: flex; flex-direction: column; gap: 12px; max-width: 980px; margin: 0 auto;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 52px; }
+  .hud { display: flex; gap: 10px; align-items: center; font-size: 20px; font-weight: 700; }
+  .chip { background: var(--panel); border-radius: 999px; padding: 8px 14px; white-space: nowrap; }
+  .iconbtn {
+    background: var(--panel); color: var(--text); border: 0; border-radius: 50%;
+    width: 52px; height: 52px; font-size: 26px; cursor: pointer;
+  }
+  main { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+  .screen { display: none; flex: 1; min-height: 0; flex-direction: column; gap: 14px; }
+  .screen.active { display: flex; }
+  h1 { font-size: clamp(30px, 6vw, 52px); margin: 0; text-align: center; line-height: 1.2; }
+  h1 small { display: block; font-size: 0.45em; color: var(--muted); font-weight: 600; margin-top: 6px; }
+  h2 { margin: 0; font-size: clamp(22px, 4vw, 32px); }
+  .big {
+    border: 0; border-radius: 22px; padding: 20px 22px; font-size: clamp(22px, 3.6vw, 30px);
+    font-weight: 800; color: var(--text); cursor: pointer; background: var(--panel-2);
+    box-shadow: 0 6px 0 rgba(0,0,0,.35); transition: transform .08s, box-shadow .08s;
+    font-family: inherit; text-align: center;
+  }
+  .big:active { transform: translateY(5px); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
+  .big.space { background: linear-gradient(135deg, #2b6fd6, #4da3ff); }
+  .big.uma { background: linear-gradient(135deg, #7a3fd1, #b06bff); }
+  .big.all { background: linear-gradient(135deg, #d6812b, #ffb84d); color: #2b1600; }
+  .big.sil { background: linear-gradient(135deg, #1f8f6a, #3ddc84); color: #032015; }
+  .big.sub { font-size: 20px; padding: 14px 18px; background: var(--panel); }
+  .big:disabled { opacity: .45; }
+  .menu { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-top: 4px; }
+  .menu .wide { grid-column: 1 / -1; }
+  .hero { text-align: center; font-size: clamp(70px, 14vw, 130px); line-height: 1; margin: 6px 0; }
+  .hero .bob { display: inline-block; animation: bob 3s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-14px) rotate(4deg); } }
+  .rank { text-align: center; color: var(--muted); font-size: 20px; }
+
+  .card {
+    background: var(--panel); border-radius: 26px; padding: 22px; text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 12px; flex: 1; min-height: 0; justify-content: center;
+    border: 3px solid transparent;
+  }
+  .card.space { border-color: var(--space); }
+  .card.uma { border-color: var(--uma); }
+  .card .emoji { font-size: clamp(80px, 18vw, 150px); line-height: 1; }
+  .card .tag { font-size: 18px; color: var(--muted); font-weight: 700; }
+  .card .name { font-size: clamp(30px, 6vw, 48px); font-weight: 900; }
+  .card .fact { font-size: clamp(22px, 3.8vw, 30px); line-height: 1.6; max-width: 760px; }
+  .row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .row .big { flex: 1 1 200px; }
+  .question { font-size: clamp(24px, 4.4vw, 36px); font-weight: 800; line-height: 1.5; }
+  .choices { display: grid; gap: 12px; width: 100%; max-width: 760px; }
+  .choice { background: var(--panel-2); }
+  .choice.right { background: var(--good); color: #032015; }
+  .choice.wrong { background: var(--bad); animation: shake .35s; }
+  @keyframes shake { 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+  .sil-emoji { filter: brightness(0) invert(0.12) drop-shadow(0 0 10px rgba(120,140,255,.9)); }
+  .sil-emoji.reveal { filter: none; transition: filter .5s; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; overflow-y: auto; padding: 4px 2px 20px; -webkit-overflow-scrolling: touch; }
+  .tile {
+    background: var(--panel); border-radius: 20px; padding: 14px 6px; text-align: center; cursor: pointer;
+    border: 3px solid transparent; font-family: inherit; color: var(--text);
+  }
+  .tile.space { border-color: var(--space); }
+  .tile.uma { border-color: var(--uma); }
+  .tile.locked { opacity: .55; border-color: #333a7a; }
+  .tile .e { font-size: 52px; line-height: 1.2; }
+  .tile .n { font-size: 16px; font-weight: 800; margin-top: 4px; }
+
+  #toast {
+    position: fixed; left: 50%; top: 18%; transform: translate(-50%, -20px); z-index: 10; opacity: 0; pointer-events: none;
+    background: var(--accent); color: #2b1d00; font-weight: 900; font-size: clamp(26px, 5vw, 42px);
+    padding: 18px 30px; border-radius: 26px; transition: all .35s; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  #rocket { position: fixed; z-index: 9; bottom: -120px; left: 50%; font-size: 90px; pointer-events: none; }
+  #rocket.fly { animation: fly 1.3s ease-in forwards; }
+  @keyframes fly { from { bottom: -120px; } to { bottom: 115%; } }
+  @media (max-width: 560px) { .menu { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div id="app">
+  <header>
+    <button class="iconbtn" id="btn-home" aria-label="ホーム">🏠</button>
+    <div class="hud">
+      <span class="chip" id="hud-stars">⭐ 0</span>
+      <span class="chip" id="hud-zukan">📖 0/0</span>
+    </div>
+    <button class="iconbtn" id="btn-sound" aria-label="おと">🔊</button>
+  </header>
+
+  <main>
+    <!-- ホーム -->
+    <section class="screen active" id="screen-home">
+      <h1>うちゅうUMAずかん<small>クイズにこたえて ずかんをあつめよう！</small></h1>
+      <div class="hero"><span class="bob">🚀</span></div>
+      <div class="rank" id="rank"></div>
+      <div class="menu">
+        <button class="big space" data-start="space">🪐 うちゅうたんけん</button>
+        <button class="big uma" data-start="uma">🦕 UMAさがし</button>
+        <button class="big all" data-start="all">🌌 ぜんぶでぼうけん</button>
+        <button class="big sil" id="btn-sil">❓ シルエットゲーム</button>
+        <button class="big sub wide" id="btn-zukan">📖 ずかんをみる</button>
+      </div>
+    </section>
+
+    <!-- ヒントカード -->
+    <section class="screen" id="screen-learn">
+      <div class="card" id="learn-card"></div>
+      <div class="row">
+        <button class="big sub" id="btn-read">🔊 もういちどよむ</button>
+        <button class="big all" id="btn-quiz">クイズに ちょうせん！</button>
+      </div>
+    </section>
+
+    <!-- クイズ -->
+    <section class="screen" id="screen-quiz">
+      <div class="card" id="quiz-card"></div>
+      <div class="row"><button class="big sub" id="btn-hint">💡 ヒントをもういちど</button></div>
+    </section>
+
+    <!-- シルエット -->
+    <section class="screen" id="screen-sil">
+      <div class="card" id="sil-card"></div>
+    </section>
+
+    <!-- ずかん -->
+    <section class="screen" id="screen-zukan">
+      <h2 id="zukan-title">📖 ずかん</h2>
+      <div class="grid" id="zukan-grid"></div>
+    </section>
+
+    <!-- ずかん詳細 -->
+    <section class="screen" id="screen-detail">
+      <div class="card" id="detail-card"></div>
+      <div class="row">
+        <button class="big sub" id="btn-detail-read">🔊 よんでもらう</button>
+        <button class="big sub" id="btn-detail-back">← ずかんにもどる</button>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="toast"></div>
+<div id="rocket">🚀</div>
+
+<script>
+"use strict";
+
+/* ===== データ ===== */
+// cat: space / uma。quiz.a が正解、ほか2つがまちがい。
+const CARDS = [
+  // --- うちゅう ---
+  { id: "sun", cat: "space", emoji: "☀️", name: "たいよう",
+    fact: "たいようは、ひかりと ねつを だしている ほしだよ。ちきゅうが 100こ いじょう ならぶくらい おおきいんだ。",
+    q: "ちきゅうに ひかりと ねつを おくってくれる ほしは どれ？", a: "たいよう", w: ["つき", "かせい"] },
+  { id: "moon", cat: "space", emoji: "🌙", name: "つき",
+    fact: "つきは、ちきゅうの まわりを ぐるぐる まわっているよ。うさぎが もちを ついているように みえるね。",
+    q: "ちきゅうの まわりを まわっているのは どれ？", a: "つき", w: ["たいよう", "もくせい"] },
+  { id: "mercury", cat: "space", emoji: "⚫", name: "すいせい",
+    fact: "すいせいは、たいように いちばん ちかい わくせいだよ。ちいさくて、はやく まわるんだ。",
+    q: "たいように いちばん ちかい わくせいは どれ？", a: "すいせい", w: ["かいおうせい", "どせい"] },
+  { id: "venus", cat: "space", emoji: "🟡", name: "きんせい",
+    fact: "きんせいは、わくせいの なかで いちばん あついよ。460どより あつくなるんだ。ちきゅうと おおきさが にているよ。",
+    q: "いちばん あつい わくせいは どれ？", a: "きんせい", w: ["すいせい", "かせい"] },
+  { id: "earth", cat: "space", emoji: "🌍", name: "ちきゅう",
+    fact: "ちきゅうは、わたしたちの すむ ほしだよ。ほしの ひょうめんの 7わりくらいが うみなんだ。",
+    q: "いきものが くらしている、わたしたちの ほしは どれ？", a: "ちきゅう", w: ["かせい", "もくせい"] },
+  { id: "mars", cat: "space", emoji: "🔴", name: "かせい",
+    fact: "かせいは、あかく みえる わくせいだよ。むかしは みずが あったかもしれないんだって。",
+    q: "あかく みえる わくせいは どれ？", a: "かせい", w: ["もくせい", "どせい"] },
+  { id: "jupiter", cat: "space", emoji: "🟠", name: "もくせい",
+    fact: "もくせいは、たいようけいで いちばん おおきい わくせいだよ。ガスで できていて、おおきな しまもようが あるよ。",
+    q: "いちばん おおきい わくせいは どれ？", a: "もくせい", w: ["ちきゅう", "すいせい"] },
+  { id: "saturn", cat: "space", emoji: "🪐", name: "どせい",
+    fact: "どせいは、まわりに きれいな わっかが あるよ。わっかは、こおりの つぶが たくさん あつまって できているんだ。",
+    q: "きれいな わっかが ある わくせいは どれ？", a: "どせい", w: ["ちきゅう", "すいせい"] },
+  { id: "blackhole", cat: "space", emoji: "🕳️", name: "ブラックホール",
+    fact: "ブラックホールは、ものすごく ちからが つよくて、ひかりも にげられない ふしぎな ばしょだよ。",
+    q: "ひかりも にげられない ふしぎな ばしょは どれ？", a: "ブラックホール", w: ["たいよう", "つき"] },
+  { id: "rocket", cat: "space", emoji: "🚀", name: "ロケット",
+    fact: "ロケットは、うしろに ガスを ものすごい いきおいで ふきだして、うちゅうへ とんでいくよ。",
+    q: "ロケットは なにを ふきだして とぶ？", a: "ガス", w: ["みず", "かぜ"] },
+  { id: "astronaut", cat: "space", emoji: "🧑‍🚀", name: "うちゅうひこうし",
+    fact: "うちゅうでは、からだが ふわふわ うかぶよ。じゅうりょくが ほとんど ないからなんだ。",
+    q: "うちゅうでは からだが どうなる？", a: "ふわふわ うく", w: ["おもく なる", "ちいさく なる"] },
+  { id: "meteor", cat: "space", emoji: "🌠", name: "ながれぼし",
+    fact: "ながれぼしは、ちいさな いしや すなが ちきゅうに とびこんで、もえて ひかるんだよ。",
+    q: "ながれぼしの しょうたいは どれ？", a: "ちいさな いしや すな", w: ["ほんものの ほし", "ひこうき"] },
+
+  // --- UMA ---
+  { id: "uma", cat: "uma", emoji: "❓", name: "UMAって なに？",
+    fact: "UMA（ユーマ）は、「まだ ほんとうに いるか わかっていない ふしぎな いきもの」の ことだよ。いるかも しれないし、いないかも しれない。そこが ワクワクするね！",
+    q: "UMAは どんな いきもの？", a: "いるか わからない ふしぎな いきもの", w: ["ぜったいに いない いきもの", "ずかんに のっている いきもの"] },
+  { id: "nessie", cat: "uma", emoji: "🦕", name: "ネッシー",
+    fact: "ネッシーは、イギリスの スコットランドにある ネスこに いるという うわさの いきものだよ。くびが ながいと いわれているよ。",
+    q: "ネッシーは どんな すがたと いわれている？", a: "くびが ながい", w: ["はねが ある", "あしが 8ほん"] },
+  { id: "tsuchinoko", cat: "uma", emoji: "🐍", name: "ツチノコ",
+    fact: "ツチノコは、にほんで うわさの へびに にた いきものだよ。ふとくて みじかい からだで、ジャンプするという はなしも あるよ。",
+    q: "ツチノコは どんな すがたと いわれている？", a: "ふとくて みじかい へび", w: ["くびの ながい きょうりゅう", "おおきな とり"] },
+  { id: "bigfoot", cat: "uma", emoji: "🦶", name: "ビッグフット",
+    fact: "ビッグフットは、アメリカの やまに いるという うわさの いきものだよ。おおきな あしあとが みつかったことから、この なまえが ついたんだ。",
+    q: "「ビッグフット」って どういう いみ？", a: "おおきな あし", w: ["おおきな め", "おおきな て"] },
+  { id: "yeti", cat: "uma", emoji: "🏔️", name: "イエティ",
+    fact: "イエティは、ヒマラヤの ゆきやまに いるという うわさの いきものだよ。「ゆきおとこ」とも よばれているよ。",
+    q: "イエティが いると いわれる ばしょは どこ？", a: "ゆきやま（ヒマラヤ）", w: ["うみの そこ", "さばく"] },
+  { id: "kussie", cat: "uma", emoji: "🦕", name: "クッシー",
+    fact: "クッシーは、ほっかいどうの くっしゃろこに いるという うわさの いきものだよ。ネッシーの なかまかも しれないね。",
+    q: "クッシーは どこの みずうみの うわさ？", a: "ほっかいどう", w: ["おきなわ", "ほんしゅう"] },
+  { id: "issie", cat: "uma", emoji: "🐉", name: "イッシー",
+    fact: "イッシーは、かごしまけんの いけだこに いるという うわさの いきものだよ。おおきな せなかを みた ひとが いるんだって。",
+    q: "イッシーが いると いわれる みずうみは どれ？", a: "いけだこ", w: ["ネスこ", "くっしゃろこ"] },
+  { id: "mokele", cat: "uma", emoji: "🦏", name: "モケーレ・ムベンベ",
+    fact: "モケーレ・ムベンベは、アフリカの コンゴの ジャングルに いるという うわさの いきものだよ。きょうりゅうに にていると いわれているよ。",
+    q: "モケーレ・ムベンベが いると いわれる ばしょは どこ？", a: "アフリカの ジャングル", w: ["きたきょく", "うちゅう"] },
+  { id: "chupacabra", cat: "uma", emoji: "🦎", name: "チュパカブラ",
+    fact: "チュパカブラは、アメリカ大陸の うわさに でてくる いきものだよ。とかげみたいな すがたで、せなかに ギザギザが あるといわれているよ。",
+    q: "チュパカブラは どんな すがたと いわれている？", a: "とかげみたいで せなかが ギザギザ", w: ["まっしろな くま", "うろこの ある さかな"] },
+];
+
+const RANKS = [
+  [0, "みならい たんけんたい"], [3, "ロケット ひこうし"], [7, "うちゅうせんの たいちょう"],
+  [12, "UMAはかせ"], [17, "うちゅうUMA だいはかせ"], [CARDS.length, "でんせつの はかせ👑"],
+];
+const CAT_LABEL = { space: "うちゅう", uma: "UMA" };
+
+/* ===== セーブ ===== */
+const SAVE_KEY = "uchu-uma-zukan-v1";
+let save = { found: [], stars: 0 };
+try { Object.assign(save, JSON.parse(localStorage.getItem(SAVE_KEY) || "{}")); } catch (e) {}
+const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} };
+
+/* ===== ユーティリティ ===== */
+const $ = (s) => document.querySelector(s);
+const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const byId = (id) => CARDS.find((c) => c.id === id);
+const isFound = (id) => save.found.includes(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ===== おと・よみあげ ===== */
+let soundOn = true;
+let actx = null;
+function beep(freqs, dur = 0.12, type = "triangle") {
+  if (!soundOn) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    let t = actx.currentTime;
+    freqs.forEach((f) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + dur); t += dur * 0.9;
+    });
+  } catch (e) {}
+}
+const sfx = {
+  good: () => beep([523, 659, 784, 1047]),
+  bad: () => beep([220, 165], 0.18, "sawtooth"),
+  get: () => beep([392, 523, 659, 784, 1047, 1319], 0.1),
+  tap: () => beep([660], 0.05),
+};
+function speak(text) {
+  if (!soundOn || !("speechSynthesis" in window)) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "ja-JP"; u.rate = 0.9; u.pitch = 1.1;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+const stopSpeak = () => { try { speechSynthesis.cancel(); } catch (e) {} };
+
+/* ===== がめん切りかえ ===== */
+function show(name) {
+  document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === "screen-" + name));
+  stopSpeak();
+  if (name === "home") renderHome();
+  updateHud();
+}
+function updateHud() {
+  $("#hud-stars").textContent = "⭐ " + save.stars;
+  $("#hud-zukan").textContent = `📖 ${save.found.length}/${CARDS.length}`;
+}
+function rankName() {
+  let r = RANKS[0][1];
+  for (const [n, name] of RANKS) if (save.found.length >= n) r = name;
+  return r;
+}
+function renderHome() {
+  $("#rank").textContent = "いまの ランク： " + rankName();
+  $("#btn-sil").disabled = save.found.length < 3;
+  $("#btn-sil").textContent = save.found.length < 3 ? "❓ シルエット（3まい あつめると あそべる）" : "❓ シルエットゲーム";
+}
+function toast(msg, ms = 1600) {
+  const t = $("#toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), ms);
+}
+function launchRocket() {
+  const r = $("#rocket");
+  r.style.left = 10 + Math.random() * 80 + "%";
+  r.classList.remove("fly"); void r.offsetWidth; r.classList.add("fly");
+}
+
+/* ===== ぼうけん（まなぶ → クイズ） ===== */
+let mode = "all";
+let current = null;
+
+function startAdventure(m) {
+  mode = m;
+  nextCard();
+}
+function nextCard() {
+  const pool = CARDS.filter((c) => mode === "all" || c.cat === mode);
+  const fresh = pool.filter((c) => !isFound(c.id));
+  // まだ見つけてないカードを優先。全部そろったら復習としてランダム。
+  const candidates = fresh.length ? fresh : pool;
+  let next = pick(candidates);
+  if (current && candidates.length > 1) while (next.id === current.id) next = pick(candidates);
+  current = next;
+  renderLearn();
+  show("learn");
+  speak(current.name + "。" + current.fact);
+}
+function renderLearn() {
+  const c = current;
+  const card = $("#learn-card");
+  card.className = "card " + c.cat;
+  card.innerHTML = `
+    <div class="tag">${CAT_LABEL[c.cat]}ヒントカード${isFound(c.id) ? "（ゲットずみ ✅）" : ""}</div>
+    <div class="emoji">${c.emoji}</div>
+    <div class="name">${esc(c.name)}</div>
+    <div class="fact">${esc(c.fact)}</div>`;
+}
+function renderQuiz() {
+  const c = current;
+  const choices = shuffle([c.a, ...c.w]);
+  const card = $("#quiz-card");
+  card.className = "card " + c.cat;
+  card.innerHTML = `
+    <div class="emoji" style="font-size:clamp(60px,12vw,100px)">${c.emoji}</div>
+    <div class="question">${esc(c.q)}</div>
+    <div class="choices">${choices.map((t) => `<button class="big choice" data-ans="${esc(t)}">${esc(t)}</button>`).join("")}</div>`;
+  show("quiz");
+  speak(c.q);
+}
+function answerQuiz(btn) {
+  if (btn.disabled) return;
+  const right = btn.dataset.ans === current.a;
+  if (right) {
+    btn.classList.add("right");
+    document.querySelectorAll("#quiz-card .choice").forEach((b) => (b.disabled = true));
+    sfx.good(); launchRocket();
+    const first = !isFound(current.id);
+    save.stars += first ? 3 : 1;
+    if (first) save.found.push(current.id);
+    persist(); updateHud();
+    setTimeout(() => {
+      if (first) { sfx.get(); toast(`🎉 ${current.name} を ゲット！`, 2000); speak(current.name + "を ゲット！ すごい！"); }
+      else { toast("⭐ せいかい！", 1400); speak("せいかい！"); }
+    }, 350);
+    setTimeout(() => showResult(first), 2200);
+  } else {
+    btn.classList.add("wrong"); btn.disabled = true;
+    sfx.bad(); speak("おしい！ もういっかい！");
+  }
+}
+function showResult(first) {
+  const c = current;
+  const card = $("#learn-card");
+  card.className = "card " + c.cat;
+  card.innerHTML = `
+    <div class="tag">${first ? "あたらしい カードを ゲット！ ✨" : "せいかい！ ⭐"}</div>
+    <div class="emoji">${c.emoji}</div>
+    <div class="name">${esc(c.name)}</div>
+    <div class="fact">${save.found.length === CARDS.length ? "ぜんぶの カードを あつめたよ！ほんものの はかせだ！🎊" : `ずかん ${save.found.length}/${CARDS.length}まい`}</div>`;
+  $("#btn-read").textContent = "🏠 ホームへ";
+  $("#btn-read").dataset.mode = "home";
+  $("#btn-quiz").textContent = "つぎの ぼうけん ▶";
+  $("#btn-quiz").dataset.mode = "next";
+  show("learn");
+}
+function resetLearnButtons() {
+  $("#btn-read").textContent = "🔊 もういちど よむ"; delete $("#btn-read").dataset.mode;
+  $("#btn-quiz").textContent = "クイズに ちょうせん！"; delete $("#btn-quiz").dataset.mode;
+}
+
+/* ===== シルエットゲーム（ゲットしたカードの復習） ===== */
+function startSilhouette() {
+  const found = save.found.map(byId);
+  const target = pick(found);
+  const others = shuffle(CARDS.filter((c) => c.id !== target.id && c.name !== target.name)).slice(0, 2);
+  const choices = shuffle([target, ...others]);
+  const card = $("#sil-card");
+  card.className = "card " + target.cat;
+  card.innerHTML = `
+    <div class="tag">シルエットゲーム</div>
+    <div class="emoji sil-emoji" id="sil-emoji">${target.emoji}</div>
+    <div class="question">これは だれかな？</div>
+    <div class="choices">${choices.map((c) => `<button class="big choice" data-id="${c.id}">${esc(c.name)}</button>`).join("")}</div>`;
+  card.dataset.target = target.id;
+  show("sil");
+  speak("これは だれかな？");
+}
+function answerSilhouette(btn) {
+  if (btn.disabled) return;
+  const target = byId($("#sil-card").dataset.target);
+  if (btn.dataset.id === target.id) {
+    btn.classList.add("right");
+    document.querySelectorAll("#sil-card .choice").forEach((b) => (b.disabled = true));
+    $("#sil-emoji").classList.add("reveal");
+    save.stars += 1; persist(); updateHud();
+    sfx.good(); launchRocket(); toast("⭐ せいかい！ " + target.name, 1500); speak(target.name + "！ せいかい！");
+    setTimeout(startSilhouette, 2200);
+  } else {
+    btn.classList.add("wrong"); btn.disabled = true; sfx.bad(); speak("おしい！ もういっかい！");
+  }
+}
+
+/* ===== ずかん ===== */
+function renderZukan() {
+  $("#zukan-grid").innerHTML = CARDS.map((c) => {
+    const f = isFound(c.id);
+    return `<button class="tile ${c.cat} ${f ? "" : "locked"}" data-id="${c.id}">
+      <div class="e">${f ? c.emoji : "❔"}</div><div class="n">${f ? esc(c.name) : "？？？"}</div></button>`;
+  }).join("");
+  $("#zukan-title").textContent = `📖 ずかん（${save.found.length}/${CARDS.length}）`;
+  show("zukan");
+}
+let detailCard = null;
+function showDetail(id) {
+  const c = byId(id);
+  if (!isFound(id)) { sfx.tap(); toast("まだ みつけていないよ！ぼうけんで ゲットしよう", 1800); return; }
+  detailCard = c;
+  const card = $("#detail-card");
+  card.className = "card " + c.cat;
+  card.innerHTML = `<div class="tag">${CAT_LABEL[c.cat]}</div><div class="emoji">${c.emoji}</div>
+    <div class="name">${esc(c.name)}</div><div class="fact">${esc(c.fact)}</div>`;
+  show("detail");
+  speak(c.name + "。" + c.fact);
+}
+
+/* ===== イベント ===== */
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button");
+  if (!t) return;
+  if (t.dataset.start) { sfx.tap(); resetLearnButtons(); startAdventure(t.dataset.start); }
+  else if (t.id === "btn-home") { sfx.tap(); resetLearnButtons(); show("home"); }
+  else if (t.id === "btn-sound") {
+    soundOn = !soundOn; t.textContent = soundOn ? "🔊" : "🔇"; if (!soundOn) stopSpeak(); else sfx.tap();
+  }
+  else if (t.id === "btn-read") {
+    if (t.dataset.mode === "home") { resetLearnButtons(); show("home"); }
+    else speak(current.name + "。" + current.fact);
+  }
+  else if (t.id === "btn-quiz") {
+    sfx.tap();
+    if (t.dataset.mode === "next") { resetLearnButtons(); nextCard(); } else renderQuiz();
+  }
+  else if (t.id === "btn-hint") { sfx.tap(); renderLearn(); resetLearnButtons(); show("learn"); speak(current.fact); }
+  else if (t.id === "btn-sil") { sfx.tap(); startSilhouette(); }
+  else if (t.id === "btn-zukan") { sfx.tap(); renderZukan(); }
+  else if (t.id === "btn-detail-read") { if (detailCard) speak(detailCard.name + "。" + detailCard.fact); }
+  else if (t.id === "btn-detail-back") { sfx.tap(); renderZukan(); }
+  else if (t.classList.contains("tile")) showDetail(t.dataset.id);
+  else if (t.closest("#quiz-card") && t.dataset.ans !== undefined) answerQuiz(t);
+  else if (t.closest("#sil-card") && t.dataset.id) answerSilhouette(t);
+});
+
+/* ===== ほしぞら ===== */
+(function starfield() {
+  const cv = $("#stars"), ctx = cv.getContext("2d");
+  let w, h, stars = [];
+  function resize() {
+    w = cv.width = innerWidth * devicePixelRatio; h = cv.height = innerHeight * devicePixelRatio;
+    stars = Array.from({ length: 90 }, () => ({ x: Math.random() * w, y: Math.random() * h, r: (Math.random() * 1.6 + 0.4) * devicePixelRatio, s: Math.random() * 0.25 + 0.05, p: Math.random() * 6 }));
+  }
+  function frame(t) {
+    ctx.clearRect(0, 0, w, h);
+    for (const s of stars) {
+      s.y += s.s * devicePixelRatio; if (s.y > h) { s.y = 0; s.x = Math.random() * w; }
+      ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t / 600 + s.p);
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill();
+    }
+    requestAnimationFrame(frame);
+  }
+  addEventListener("resize", resize); resize(); requestAnimationFrame(frame);
+})();
+
+show("home");
+</script>
+</body>
+</html>
