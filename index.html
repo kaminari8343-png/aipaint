@@ -108,6 +108,20 @@
   #rocket { position: fixed; z-index: 9; bottom: -120px; left: 50%; font-size: 90px; pointer-events: none; }
   #rocket.fly { animation: fly 1.3s ease-in forwards; }
   @keyframes fly { from { bottom: -120px; } to { bottom: 115%; } }
+  #screen-home { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 12px; }
+  .gamehud { display: flex; justify-content: space-between; gap: 8px; font-size: 22px; font-weight: 800; }
+  .gamebox { position: relative; flex: 1; min-height: 0; border-radius: 22px; overflow: hidden; background: rgba(21,28,74,.65); border: 3px solid var(--panel-2); touch-action: none; }
+  .gamebox canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  .over { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(7,11,36,.85); text-align: center; padding: 20px; }
+  .over.show { display: flex; }
+  .over .big { min-width: 260px; }
+  .over .score { font-size: clamp(30px, 6vw, 48px); font-weight: 900; line-height: 1.4; }
+  .gamehint { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; color: var(--muted); font-size: 20px; pointer-events: none; }
+  .ufo { position: absolute; width: 96px; border: 0; border-radius: 22px; background: var(--panel-2); color: var(--text); padding: 6px 2px; font-family: inherit; cursor: pointer; animation: pop .25s ease-out; touch-action: manipulation; }
+  .ufo span { display: block; font-size: 52px; line-height: 1.15; }
+  .ufo small { display: block; font-size: 13px; font-weight: 800; }
+  .ufo.caught { background: var(--good); color: #032015; transform: scale(1.2); transition: transform .2s; }
+  @keyframes pop { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   @media (max-width: 560px) { .menu { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -134,6 +148,9 @@
         <button class="big uma" data-start="uma">🦕 UMAさがし</button>
         <button class="big all" data-start="all">🌌 ぜんぶでぼうけん</button>
         <button class="big sil" id="btn-sil">❓ シルエットゲーム</button>
+        <button class="big" data-start="math" style="background:linear-gradient(135deg,#d6482b,#ff8a5c)">🔢 さんすうロケット</button>
+        <button class="big" data-start="kanji" style="background:linear-gradient(135deg,#c2368f,#ff6bc1)">🈴 かんじクエスト</button>
+        <button class="big all wide" id="btn-games">🎮 ミニゲーム</button>
         <button class="big sub wide" id="btn-zukan">📖 ずかんをみる</button>
       </div>
     </section>
@@ -156,6 +173,34 @@
     <!-- シルエット -->
     <section class="screen" id="screen-sil">
       <div class="card" id="sil-card"></div>
+    </section>
+
+    <!-- ミニゲーム選択 -->
+    <section class="screen" id="screen-games">
+      <h2>🎮 ミニゲーム</h2>
+      <div class="menu">
+        <button class="big space wide" data-game="dodge">☄️ ロケットで いんせきを よけろ！<br><small id="best-dodge"></small></button>
+        <button class="big uma wide" data-game="catch">🦕 UMAを つかまえろ！<br><small id="best-catch"></small></button>
+      </div>
+    </section>
+
+    <!-- よけろ -->
+    <section class="screen" id="screen-dodge">
+      <div class="gamehud"><span class="chip" id="dodge-hud">❤️❤️❤️</span><span class="chip" id="dodge-score">⭐ 0</span></div>
+      <div class="gamebox">
+        <canvas id="dodge-cv"></canvas>
+        <div class="gamehint" id="dodge-hint">ゆびで ロケットを よこに うごかそう！ ⭐を あつめて ☄️は さけてね</div>
+        <div class="over" id="dodge-over"></div>
+      </div>
+    </section>
+
+    <!-- つかまえろ -->
+    <section class="screen" id="screen-catch">
+      <div class="gamehud"><span class="chip" id="catch-time">⏱ 30</span><span class="chip" id="catch-score">🦕 0</span></div>
+      <div class="gamebox">
+        <div id="catch-area" style="position:absolute;inset:0"></div>
+        <div class="over" id="catch-over"></div>
+      </div>
     </section>
 
     <!-- ずかん -->
@@ -249,6 +294,61 @@ const CARDS = [
   { id: "chupacabra", cat: "uma", emoji: "🦎", name: "チュパカブラ",
     fact: "チュパカブラは、アメリカ大陸の うわさに でてくる いきものだよ。とかげみたいな すがたで、せなかに ギザギザが あるといわれているよ。",
     q: "チュパカブラは どんな すがたと いわれている？", a: "とかげみたいで せなかが ギザギザ", w: ["まっしろな くま", "うろこの ある さかな"] },
+  { id: "kappa", cat: "uma", emoji: "🥒", name: "カッパ",
+    fact: "カッパは、にほんの かわに すむという むかしばなしの いきものだよ。あたまに おさらが あって、きゅうりが だいすきなんだって。",
+    q: "カッパが だいすきな たべものは どれ？", a: "きゅうり", w: ["ケーキ", "ラーメン"] },
+  { id: "hibagon", cat: "uma", emoji: "🦍", name: "ヒバゴン",
+    fact: "ヒバゴンは、ひろしまけんの ひばやまで うわさに なった、さるに にた いきものだよ。むかし、まちじゅうで わだいに なったんだ。",
+    q: "ヒバゴンの うわさが あった けんは どこ？", a: "ひろしまけん", w: ["ほっかいどう", "おきなわけん"] },
+  { id: "jackalope", cat: "uma", emoji: "🐇", name: "ジャッカロープ",
+    fact: "ジャッカロープは、アメリカの うわさに でてくる いきものだよ。うさぎの あたまに、しかのような つのが はえているんだ。",
+    q: "ジャッカロープは どんな すがた？", a: "つのが はえた うさぎ", w: ["はねの ある ねこ", "あしの ない さかな"] },
+  { id: "skyfish", cat: "uma", emoji: "🎐", name: "スカイフィッシュ",
+    fact: "スカイフィッシュは、そらを ものすごい はやさで とぶ ほそながい いきものと いわれたよ。じつは、むしの はねの うごきが うつったのかも といわれているんだ。",
+    q: "スカイフィッシュは どこを とぶと いわれた？", a: "そら", w: ["うみの なか", "じめんの した"] },
+  { id: "kesaran", cat: "uma", emoji: "☁️", name: "ケサランパサラン",
+    fact: "ケサランパサランは、にほんの うわさの いきものだよ。しろくて ふわふわの けだまの すがたで、おしろいを あげると ふえると いわれているよ。",
+    q: "ケサランパサランは どんな かんじ？", a: "しろくて ふわふわ", w: ["かたくて とげとげ", "あかくて ひかる"] },
+
+  // --- うちゅう（つづき） ---
+  { id: "galaxy", cat: "space", emoji: "🌌", name: "ぎんが",
+    fact: "ぎんがは、ほしが なんおくこも あつまった、おおきな うずまきだよ。わたしたちの たいようも ぎんがの なかに いるんだ。",
+    q: "ほしが たくさん あつまった おおきな うずまきは どれ？", a: "ぎんが", w: ["ながれぼし", "たいよう"] },
+  { id: "iss", cat: "space", emoji: "🛰️", name: "うちゅうステーション",
+    fact: "こくさいうちゅうステーションは、うちゅうに ある おうちだよ。ちきゅうの まわりを 1にちに 16かいくらい まわっているんだ。",
+    q: "うちゅうステーションは どこの まわりを まわっている？", a: "ちきゅう", w: ["つき", "たいよう"] },
+  { id: "uranus", cat: "space", emoji: "🔵", name: "てんのうせい",
+    fact: "てんのうせいは、よこに ころがるように まわる ふしぎな わくせいだよ。うすい あおみどりいろに みえるんだ。",
+    q: "よこに ころがるように まわる わくせいは どれ？", a: "てんのうせい", w: ["かせい", "きんせい"] },
+  { id: "neptune", cat: "space", emoji: "🌀", name: "かいおうせい",
+    fact: "かいおうせいは、たいように いちばん とおい わくせいだよ。あおくて、とても つよい かぜが ふいているんだ。",
+    q: "たいように いちばん とおい わくせいは どれ？", a: "かいおうせい", w: ["すいせい", "ちきゅう"] },
+  { id: "comet", cat: "space", emoji: "☄️", name: "ほうきぼし",
+    fact: "ほうきぼしは、こおりと ちりの かたまりだよ。たいように ちかづくと、ながい しっぽが できて ひかるんだ。",
+    q: "たいように ちかづくと、ながい しっぽが できるのは どれ？", a: "ほうきぼし", w: ["つき", "かせい"] },
+  { id: "constellation", cat: "space", emoji: "✨", name: "せいざ",
+    fact: "せいざは、よぞらの ほしを つないで、どうぶつや ひとの かたちに みたてた ものだよ。オリオンざが ゆうめいだね。",
+    q: "ほしを つないで かたちに みたてた ものは どれ？", a: "せいざ", w: ["ぎんが", "わくせい"] },
+];
+
+/* ===== かんじ・さんすう（れんしゅうもんだい） ===== */
+const KANJI = [
+  { k: "月", y: "つき", h: "よるの そらで ひかっているよ" }, { k: "日", y: "ひ", h: "あさ のぼってくる たいようの ことだよ" },
+  { k: "水", y: "みず", h: "のむと ごくごく、プールに いっぱい！" }, { k: "木", y: "き", h: "もりに たくさん はえているよ" },
+  { k: "土", y: "つち", h: "はたけや こうえんの じめんだよ" }, { k: "山", y: "やま", h: "イエティが すんでいる ところ！" },
+  { k: "川", y: "かわ", h: "カッパが すんでいるよ" }, { k: "空", y: "そら", h: "ロケットが とんでいく ところ！" },
+  { k: "石", y: "いし", h: "いんせきも この なかま" }, { k: "虫", y: "むし", h: "カブトムシや ちょうちょう" },
+  { k: "犬", y: "いぬ", h: "ワンワン なく どうぶつ" }, { k: "雨", y: "あめ", h: "そらから ふってくる みずだよ" },
+  { k: "花", y: "はな", h: "はるに さく きれいな もの" }, { k: "目", y: "め", h: "ものを みる ところ" },
+  { k: "手", y: "て", h: "ボタンを おす ところ" }, { k: "足", y: "あし", h: "ビッグフットは これが おおきい！" },
+  { k: "力", y: "ちから", h: "つよい ひとは これが たくさん" }, { k: "王", y: "おう", h: "くにを おさめる えらい ひと" },
+  { k: "人", y: "ひと", h: "わたしたち にんげんの こと" }, { k: "森", y: "もり", h: "き が たくさん あつまった ところ" },
+  { k: "赤", y: "あか", h: "かせいの いろ！" }, { k: "青", y: "あお", h: "ちきゅうの いろ！" },
+  { k: "白", y: "しろ", h: "ゆきの いろ。イエティの けも？" }, { k: "貝", y: "かい", h: "うみに いる、からを もった いきもの" },
+];
+const MATH_THEMES = [
+  { e: "🚀", n: "ロケット", u: "だい" }, { e: "🛸", n: "UFO", u: "だい" }, { e: "⭐", n: "ほし", u: "こ" },
+  { e: "🪐", n: "わくせい", u: "こ" }, { e: "👽", n: "うちゅうじん", u: "ひき" }, { e: "🦕", n: "ネッシー", u: "ひき" },
 ];
 
 const RANKS = [
@@ -306,6 +406,7 @@ const stopSpeak = () => { try { speechSynthesis.cancel(); } catch (e) {} };
 
 /* ===== がめん切りかえ ===== */
 function show(name) {
+  stopGames();
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === "screen-" + name));
   stopSpeak();
   if (name === "home") renderHome();
@@ -323,7 +424,7 @@ function rankName() {
 function renderHome() {
   $("#rank").textContent = "いまの ランク： " + rankName();
   $("#btn-sil").disabled = save.found.length < 3;
-  $("#btn-sil").textContent = save.found.length < 3 ? "❓ シルエット（3まい あつめると あそべる）" : "❓ シルエットゲーム";
+  $("#btn-sil").textContent = save.found.length < 3 ? "🔒 シルエット（3まいで かいほう）" : "❓ シルエットゲーム";
 }
 function toast(msg, ms = 1600) {
   const t = $("#toast");
@@ -342,7 +443,35 @@ let current = null;
 
 function startAdventure(m) {
   mode = m;
-  nextCard();
+  if (m === "math" || m === "kanji") nextPractice(); else nextCard();
+}
+const rand = (n) => Math.floor(Math.random() * n);
+function makeMath() {
+  const th = pick(MATH_THEMES);
+  const add = Math.random() < 0.6;
+  let a, b, ans, q, emoji;
+  if (add) {
+    a = 1 + rand(9); b = 1 + rand(10 - a); ans = a + b;
+    q = `${th.n}が ${a}${th.u} いるよ。${b}${th.u} ふえると、ぜんぶで いくつ？`;
+    emoji = th.e.repeat(a) + " ➕ " + th.e.repeat(b);
+  } else {
+    a = 2 + rand(9); b = 1 + rand(a - 1); ans = a - b;
+    q = `${th.n}が ${a}${th.u} いるよ。${b}${th.u} いなくなると、のこりは いくつ？`;
+    emoji = th.e.repeat(a) + " ➖ " + "💨".repeat(b);
+  }
+  const wrong = shuffle([ans - 2, ans - 1, ans + 1, ans + 2].filter((n) => n >= 0 && n <= 12)).slice(0, 2);
+  return { practice: true, small: true, cat: "space", emoji, q, a: String(ans), w: wrong.map(String),
+    fact: add ? `${a} + ${b} = ?  ゆびで かぞえてみよう！` : `${a} - ${b} = ?  ゆびで かぞえてみよう！` };
+}
+function makeKanji() {
+  const it = pick(KANJI);
+  const wrong = shuffle(KANJI.filter((x) => x.y !== it.y)).slice(0, 2).map((x) => x.y);
+  return { practice: true, cat: "uma", emoji: it.k, q: "この かんじは なんと よむ？", say: "この かんじは なんと よむ？",
+    a: it.y, w: wrong, fact: "ヒント：" + it.h };
+}
+function nextPractice() {
+  current = mode === "math" ? makeMath() : makeKanji();
+  renderQuiz();
 }
 function nextCard() {
   const pool = CARDS.filter((c) => mode === "all" || c.cat === mode);
@@ -368,15 +497,16 @@ function renderLearn() {
 }
 function renderQuiz() {
   const c = current;
-  const choices = shuffle([c.a, ...c.w]);
+  const choices = c.small ? [c.a, ...c.w].sort((x, y) => x - y) : shuffle([c.a, ...c.w]);
   const card = $("#quiz-card");
   card.className = "card " + c.cat;
   card.innerHTML = `
-    <div class="emoji" style="font-size:clamp(60px,12vw,100px)">${c.emoji}</div>
+    <div class="emoji" style="font-size:${c.small ? "clamp(36px,7vw,60px)" : "clamp(60px,12vw,100px)"}">${c.emoji}</div>
     <div class="question">${esc(c.q)}</div>
     <div class="choices">${choices.map((t) => `<button class="big choice" data-ans="${esc(t)}">${esc(t)}</button>`).join("")}</div>`;
   show("quiz");
-  speak(c.q);
+  $("#btn-hint").style.display = c.practice ? "none" : "";
+  speak(c.say || c.q);
 }
 function answerQuiz(btn) {
   if (btn.disabled) return;
@@ -384,6 +514,12 @@ function answerQuiz(btn) {
   if (right) {
     btn.classList.add("right");
     document.querySelectorAll("#quiz-card .choice").forEach((b) => (b.disabled = true));
+    if (current.practice) {
+      sfx.good(); launchRocket(); save.stars += 1; persist(); updateHud();
+      toast("⭐ せいかい！", 1200); speak("せいかい！");
+      setTimeout(nextPractice, 1700);
+      return;
+    }
     sfx.good(); launchRocket();
     const first = !isFound(current.id);
     save.stars += first ? 3 : 1;
@@ -397,6 +533,7 @@ function answerQuiz(btn) {
   } else {
     btn.classList.add("wrong"); btn.disabled = true;
     sfx.bad(); speak("おしい！ もういっかい！");
+    if (current.practice && current.fact) toast(current.fact, 2400);
   }
 }
 function showResult(first) {
@@ -451,9 +588,116 @@ function answerSilhouette(btn) {
   }
 }
 
+/* ===== ミニゲーム ===== */
+let gameStop = null;
+function stopGames() { if (gameStop) { gameStop(); gameStop = null; } }
+const bestKey = (g) => "best_" + g;
+function award(game, score, divisor) {
+  const gain = Math.min(5, Math.ceil(score / divisor));
+  save.stars += gain;
+  const isBest = score > (save[bestKey(game)] || 0);
+  if (isBest) save[bestKey(game)] = score;
+  persist(); updateHud();
+  return { gain, isBest };
+}
+function showOver(el, game, score, divisor, unit) {
+  const { gain, isBest } = award(game, score, divisor);
+  el.innerHTML = `<div class="score">${isBest && score > 0 ? "🎉 しんきろく！" : "おつかれさま！"}<br>${unit} ${score}<br>⭐ +${gain}</div>
+    <button class="big all" data-retry="${game}">もういっかい！</button>
+    <button class="big sub" data-go="games">ミニゲームに もどる</button>`;
+  el.classList.add("show");
+  sfx.get(); speak(score > 0 ? "おつかれさま！ すごい！" : "つぎは がんばろう！");
+}
+function renderGames() {
+  $("#best-dodge").textContent = "ベスト： " + (save.best_dodge || 0) + " こ";
+  $("#best-catch").textContent = "ベスト： " + (save.best_catch || 0) + " ひき";
+  show("games");
+}
+
+function startDodge() {
+  show("dodge");
+  const cv = $("#dodge-cv"), ctx = cv.getContext("2d"), box = cv.parentElement;
+  const dpr = window.devicePixelRatio || 1, W = box.clientWidth, H = box.clientHeight;
+  cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const over = $("#dodge-over"); over.classList.remove("show"); $("#dodge-hint").style.display = "";
+  const player = { x: W / 2, y: H - 70 };
+  let items = [], lives = 3, score = 0, time = 0, spawn = 0.6, last = performance.now(), raf = 0, done = false, invuln = 0;
+  const hud = () => { $("#dodge-hud").textContent = "❤️".repeat(lives) + "🖤".repeat(3 - lives); $("#dodge-score").textContent = "⭐ " + score; };
+  const move = (e) => {
+    const r = cv.getBoundingClientRect();
+    player.x = Math.max(30, Math.min(W - 30, e.clientX - r.left));
+    $("#dodge-hint").style.display = "none";
+  };
+  cv.addEventListener("pointermove", move); cv.addEventListener("pointerdown", move);
+  const emoji = (ch, x, y, size) => { ctx.font = size + "px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(ch, x, y); };
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt; spawn -= dt; invuln -= dt;
+    if (spawn <= 0) {
+      spawn = Math.max(0.3, 0.85 - time * 0.01);
+      items.push({ x: 30 + Math.random() * (W - 60), y: -30, v: 130 + time * 4 + Math.random() * 90, star: Math.random() < 0.3 });
+    }
+    ctx.clearRect(0, 0, W, H);
+    items = items.filter((it) => {
+      it.y += it.v * dt;
+      emoji(it.star ? "⭐" : "☄️", it.x, it.y, it.star ? 40 : 46);
+      if (Math.hypot(it.x - player.x, it.y - player.y) < 40) {
+        if (it.star) { score++; beep([880, 1175], 0.06); }
+        else if (invuln <= 0) { lives--; invuln = 0.8; sfx.bad(); }
+        hud(); return false;
+      }
+      return it.y < H + 40;
+    });
+    ctx.globalAlpha = invuln > 0 && Math.floor(invuln * 10) % 2 ? 0.35 : 1;
+    emoji("🚀", player.x, player.y, 56); ctx.globalAlpha = 1;
+    if (lives <= 0) { finish(); return; }
+    raf = requestAnimationFrame(loop);
+  }
+  function finish() {
+    done = true; cancelAnimationFrame(raf);
+    showOver(over, "dodge", score, 3, "⭐");
+  }
+  gameStop = () => { cancelAnimationFrame(raf); cv.removeEventListener("pointermove", move); cv.removeEventListener("pointerdown", move); };
+  hud(); raf = requestAnimationFrame(loop);
+}
+
+function startCatch() {
+  show("catch");
+  const area = $("#catch-area"), over = $("#catch-over");
+  area.innerHTML = ""; over.classList.remove("show"); over.innerHTML = "";
+  const pool = CARDS.filter((c) => c.cat === "uma" && c.id !== "uma");
+  let score = 0, left = 30, alive = true, spawnTimer = 0;
+  const hud = () => { $("#catch-time").textContent = "⏱ " + left; $("#catch-score").textContent = "🦕 " + score; };
+  function spawn() {
+    if (!alive) return;
+    const c = pick(pool), b = document.createElement("button");
+    b.className = "ufo"; b.innerHTML = `<span>${c.emoji}</span><small>${esc(c.name)}</small>`;
+    b.style.left = Math.random() * Math.max(10, area.clientWidth - 100) + "px";
+    b.style.top = Math.random() * Math.max(10, area.clientHeight - 100) + "px";
+    b.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      if (b.dataset.done) return;
+      b.dataset.done = "1"; score++; b.classList.add("caught"); hud(); sfx.good(); speak(c.name);
+      setTimeout(() => b.remove(), 350);
+    });
+    area.appendChild(b);
+    setTimeout(() => b.remove(), Math.max(900, 1700 - (30 - left) * 25));
+    spawnTimer = setTimeout(spawn, 500 + Math.random() * 400);
+  }
+  const tick = setInterval(() => {
+    left--; hud();
+    if (left <= 0) { stopGames(); area.innerHTML = ""; showOverCatch(); }
+  }, 1000);
+  function showOverCatch() {
+    showOver(over, "catch", score, 4, "🦕");
+  }
+  gameStop = () => { alive = false; clearInterval(tick); clearTimeout(spawnTimer); };
+  hud(); spawn();
+}
+
 /* ===== ずかん ===== */
 function renderZukan() {
-  $("#zukan-grid").innerHTML = CARDS.map((c) => {
+  const order = { space: 0, uma: 1 };
+  $("#zukan-grid").innerHTML = CARDS.slice().sort((a, b) => order[a.cat] - order[b.cat]).map((c) => {
     const f = isFound(c.id);
     return `<button class="tile ${c.cat} ${f ? "" : "locked"}" data-id="${c.id}">
       <div class="e">${f ? c.emoji : "❔"}</div><div class="n">${f ? esc(c.name) : "？？？"}</div></button>`;
@@ -479,6 +723,10 @@ document.addEventListener("click", (e) => {
   const t = e.target.closest("button");
   if (!t) return;
   if (t.dataset.start) { sfx.tap(); resetLearnButtons(); startAdventure(t.dataset.start); }
+  else if (t.id === "btn-games") { sfx.tap(); renderGames(); }
+  else if (t.dataset.game) { sfx.tap(); t.dataset.game === "dodge" ? startDodge() : startCatch(); }
+  else if (t.dataset.retry) { sfx.tap(); t.dataset.retry === "dodge" ? startDodge() : startCatch(); }
+  else if (t.dataset.go === "games") { sfx.tap(); renderGames(); }
   else if (t.id === "btn-home") { sfx.tap(); resetLearnButtons(); show("home"); }
   else if (t.id === "btn-sound") {
     soundOn = !soundOn; t.textContent = soundOn ? "🔊" : "🔇"; if (!soundOn) stopSpeak(); else sfx.tap();
